@@ -1,6 +1,8 @@
 import streamlit as st
 from deep_translator import GoogleTranslator
 from streamlit_mic_recorder import speech_to_text
+from gtts import gTTS
+import base64
 
 # Configurazione della pagina futuristica
 st.set_page_config(page_title="A.T.O.M. System", page_icon="🤖", layout="centered")
@@ -8,13 +10,10 @@ st.set_page_config(page_title="A.T.O.M. System", page_icon="🤖", layout="cente
 # CSS personalizzato per trasformare l'interfaccia in stile Jarvis / Sci-Fi
 st.markdown("""
     <style>
-    /* Sfondo scuro profondo e font tech */
     .stApp {
         background-color: #030712;
         font-family: 'Courier New', Courier, monospace;
     }
-    
-    /* Titolo A.T.O.M. con effetto Neon Azzurro */
     .jarvis-title {
         color: #00f0ff;
         text-shadow: 0 0 10px #00f0ff, 0 0 20px #00d8ff;
@@ -24,7 +23,6 @@ st.markdown("""
         letter-spacing: 3px;
         margin-bottom: 5px;
     }
-    
     .jarvis-subtitle {
         color: #38bdf8;
         text-align: center;
@@ -33,8 +31,6 @@ st.markdown("""
         text-transform: uppercase;
         letter-spacing: 1px;
     }
-    
-    /* Box dei risultati in stile HUD olografico */
     .hud-box {
         background: rgba(0, 240, 255, 0.05);
         border: 1px solid #00f0ff;
@@ -44,7 +40,6 @@ st.markdown("""
         color: #e2e8f0;
         margin-top: 15px;
     }
-    
     .hud-label {
         color: #38bdf8;
         font-size: 0.8rem;
@@ -55,13 +50,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Intestazione del Sistema
-st.markdown('<h1 class="jarvis-title">🤖 A.T.O.M. v1.0</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="jarvis-title">🤖 A.T.O.M. v1.1</h1>', unsafe_allow_html=True)
 st.markdown('<div class="jarvis-subtitle">Automatic Translator Operative Machine</div>', unsafe_allow_html=True)
-
 st.write("---")
 
-# Selezione della modalità operativa (HUD Style)
 direzione = st.radio(
     "SELEZIONA FLUSSO DATI (OPERATIONAL CORE):",
     ("ITALIANO ➔ INGLESE (Data Link Alpha)", "INGLESE ➔ ITALIANO (Data Link Beta)")
@@ -78,9 +70,13 @@ else:
     placeholder_testo = "Iniezione dati testo (EN)..."
     label_bottone = "⚡ ATTIVA ACCESSO VOCALE (INGLESE)"
 
-traduttore = GoogleTranslator(source=lingua_partenza, target=lingua_arrivo)
+# Usiamo un motore di riserva MyMemory se Google fallisce per evitare l'errore di rete dei server
+try:
+    from deep_translator import MyMemoryTranslator
+    traduttore = MyMemoryTranslator(source=lingua_partenza, target=lingua_arrivo)
+except:
+    traduttore = GoogleTranslator(source=lingua_partenza, target=lingua_arrivo)
 
-# Sezione Rilevamento Input
 st.write("")
 st.markdown("<div class='hud-label'>[INPUT MATRIX] Rilevamento Audio Vocale</div>", unsafe_allow_html=True)
 
@@ -97,11 +93,8 @@ testo_scritto = st.text_input("", placeholder=placeholder_testo, label_visibilit
 
 testo_finale = testo_vocale if testo_vocale else testo_scritto
 
-# Output Elaborazione Dati
 if testo_finale:
     st.write("")
-    
-    # Box Input Rilevato
     st.markdown(f"""
     <div class="hud-box">
         <div class="hud-label">> INPUT RILEVATO:</div>
@@ -109,15 +102,30 @@ if testo_finale:
     </div>
     """, unsafe_allow_html=True)
     
-    # Processamento e Box Traduzione
     with st.spinner("Elaborazione algoritmi di traduzione..."):
         try:
             traduzione = traduttore.translate(testo_finale)
+            
             st.markdown(f"""
             <div class="hud-box" style="border-color: #38bdf8; background: rgba(56, 189, 248, 0.07);">
                 <div class="hud-label" style="color: #38bdf8;">> TRADUZIONE DECODIFICATA:</div>
                 <div style="font-size: 1.3rem; color: #00f0ff; font-weight: bold; text-shadow: 0 0 5px rgba(0,240,255,0.5);">{traduzione}</div>
             </div>
             """, unsafe_allow_html=True)
-        except Exception:
-            st.error("ERRORE DI RETE: Impossibile contattare il server di decodifica.")
+            
+            # --- MODULO VOCALE AUDIO ---
+            # Genera il file audio della traduzione nella lingua di arrivo
+            tts = gTTS(text=traduzione, lang=lingua_arrivo)
+            tts.save("output.mp3")
+            
+            # Inserisce il player audio nascosto con autoplay automatico
+            with open("output.mp3", "rb") as f:
+                audio_bytes = f.read()
+            b64_audio = base64.b64encode(audio_bytes).decode()
+            
+            st.markdown("<div class='hud-label' style='margin-top:10px;'>[AUDIO OUTPUT] Sintesi Vocale Attiva</div>", unsafe_allow_html=True)
+            # Mostra il lettore e fa partire l'audio in automatico appena la traduzione è pronta
+            st.audio(audio_bytes, format="audio/mp3", autoplay=True)
+            
+        except Exception as e:
+            st.error("ERRORE DI DECODIFICA CORE: Riprova a inviare il messaggio.")
