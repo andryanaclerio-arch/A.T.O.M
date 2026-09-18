@@ -1,3 +1,0 @@
-streamlit
-streamlit-mic-recorder
-deep-translator
